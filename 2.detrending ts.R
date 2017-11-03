@@ -100,7 +100,7 @@ mutate(date = ymd(row.names)) %>% select(-row.names) %>% select(date, everything
 
 #=====================================================================================
 #using decompose function to detrend time series. Only for evenly spaced time series
-#Window (Date) could be changed depending on choose.
+#Window (Dates) could be changed depending on choose
 #decompose typhi
 ts_typhi = ts(typhi$case_count, frequency = 12, start = c(2011,1), end = c(2015,12))
 decompose_typhi = decompose(ts_typhi, "multiplicative")
