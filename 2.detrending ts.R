@@ -1,7 +1,4 @@
 #STRATAA time series analysis
-
-# times series decomposition and detrending
-
 rm(list=ls())
 #load packages
 library(lubridate)
@@ -98,8 +95,25 @@ temp <-climate_temp.x.w
 rm(list = ls()[grep("^climate", ls())]) #deletes any dataset with word 'climate'
 rm(list = ls()[grep("^case", ls())]) #deletes any dataset with word 'case'
 
+typhi.df <- typhi %>% as_tibble(preserve_row_names = TRUE) %>% 
+mutate(date = ymd(row.names)) %>% select(-row.names) %>% select(date, everything())
+
 #=====================================================================================
-#using decompose function to detrend time series. Only if you have evenly (monthly) spaced observations in time series
+#using decompose function to detrend time series. Only for evenly spaced time series
+#Window (Date) could be changed depending on choose.
+#decompose typhi
+ts_typhi = ts(typhi$case_count, frequency = 12, start = c(2011,1), end = c(2015,12))
+decompose_typhi = decompose(ts_typhi, "multiplicative")
+par(mar=c(2,2,2,2)) #creates bigger plot space
+plot(as.ts(decompose_typhi$seasonal))
+plot(as.ts(decompose_typhi$trend))
+plot(as.ts(decompose_typhi$random))
+plot(decompose_typhi)
+#recompose typhi
+recompose_typhi = decompose_typhi$seasonal*decompose_typhi$trend*decompose_typhi$random
+par(mfrow = c(2,1), mar = c(2,2,2,2))
+plot(ts_typhi)
+plot(recompose_typhi)
 
 #decompose iNTS
 ts_iNTS = ts(iNTS$case_count, frequency = 12, start = c(2000,1), end = c(2015,12))
@@ -116,7 +130,7 @@ plot(ts_iNTS)
 plot(recompose_iNTS)
 
 #decompose rains
-ts_rain = ts(rain$rainfall, frequency = 12, start = c(2000,1), end = c(2015,12))
+ts_rain = ts(rain$rainfall, frequency = 12, start = c(2011,1), end = c(2015,12))
 decompose_rain = decompose(ts_rain, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_rain$seasonal))
@@ -130,7 +144,7 @@ plot(ts_rain)
 plot(recompose_rain)
 
 #decompose temperature
-ts_temp = ts(temp$temperature, frequency = 12, start = c(2000,1), end = c(2015,12))
+ts_temp = ts(temp$temperature, frequency = 12, start = c(2011,1), end = c(2015,12))
 decompose_temp = decompose(ts_temp, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_temp$seasonal))
@@ -144,7 +158,7 @@ plot(ts_temp)
 plot(recompose_temp)
 
 #decompose humidity
-ts_humi = ts(humi$humidity, frequency = 12, start = c(2000,1), end = c(2015,12))
+ts_humi = ts(humi$humidity, frequency = 12, start = c(2011,1), end = c(2015,12))
 decompose_humi = decompose(ts_humi, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_humi$seasonal))
@@ -156,6 +170,45 @@ recompose_humi = decompose_humi$seasonal+decompose_humi$trend+decompose_humi$ran
 par(mfrow = c(2,1), mar = c(2,2,2,2))
 plot(ts_humi)
 plot(recompose_humi)
+
+
+#plot trends of typhi & rainfall on same graph
+par(mfrow = c(1,1), mar = c(5,4,4,6)) #set plot margins enough for captions
+plot(decompose_typhi$trend, axes=TRUE, xlab="", ylab="", main="Typhoid Fever & Rainfall trends", col="red3")
+axis(2, col.axis="red")
+mtext("Number of typhi cases", side=2, line=2, col="red3")
+box()
+par(new = TRUE)
+plot(decompose_rain$trend, axes=FALSE, xlab="", ylab="", col="blue")
+axis(4, col="blue", col.axis="blue", las=1)
+mtext("Rainfall [mm]", side=4, line=4, col="blue")
+mtext("Time (year)", side=1, col="black", line=2.5)
+
+
+#plot trends of typhi & temperature on same graph
+par(mfrow = c(1,1), mar = c(5,4,4,6)) #set plot margins enough for captions
+plot(decompose_typhi$trend, axes=TRUE, xlab="", ylab="", main="Typhoid Fever & Temperature trends", col="red3")
+axis(2, col.axis="red")
+mtext("Number of typhi cases", side=2, line=2, col="red3")
+box()
+par(new = TRUE)
+plot(decompose_temp$trend, axes=FALSE, xlab="", ylab="", col="blue")
+axis(4, col="blue", col.axis="blue", las=1)
+mtext("Temperature [°C]", side=4, line=4, col="blue")
+mtext("Time (year)", side=1, col="black", line=2.5)
+
+
+#plot trends of typhi & humidity on same graph
+par(mfrow = c(1,1), mar = c(5,4,4,6)) #set plot margins enough for captions
+plot(decompose_typhi$trend, axes=TRUE, xlab="", ylab="", main="Typhoid Fever & Humidity trends", col="red3")
+axis(2, col.axis="red")
+mtext("Number of typhi cases", side=2, line=2, col="red3")
+box()
+par(new = TRUE)
+plot(decompose_humi$trend, axes=FALSE, xlab="", ylab="", col="blue")
+axis(4, col="blue", col.axis="blue", las=1)
+mtext("Humidity [%]", side=4, line=4, col="blue")
+mtext("Time (year)", side=1, col="black", line=2.5)
 
 
 #plot trends of iNTS & rainfall on same graph
@@ -195,4 +248,3 @@ plot(decompose_humi$trend, axes=FALSE, xlab="", ylab="", col="blue")
 axis(4, col="blue", col.axis="blue", las=1)
 mtext("Humidity [%]", side=4, line=4, col="blue")
 mtext("Time (year)", side=1, col="black", line=2.5)
-
