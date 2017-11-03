@@ -95,9 +95,6 @@ temp <-climate_temp.x.w
 rm(list = ls()[grep("^climate", ls())]) #deletes any dataset with word 'climate'
 rm(list = ls()[grep("^case", ls())]) #deletes any dataset with word 'case'
 
-typhi.df <- typhi %>% as_tibble(preserve_row_names = TRUE) %>% 
-mutate(date = ymd(row.names)) %>% select(-row.names) %>% select(date, everything())
-
 #=====================================================================================
 #using decompose function to detrend time series. Only for evenly spaced time series
 #Window (Dates) could be changed depending on choose
