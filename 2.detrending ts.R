@@ -1,7 +1,7 @@
 #STRATAA time series analysis
 
 # times series decomposition and detrending
-#STRATAA time series analysis
+
 rm(list=ls())
 #load packages
 library(lubridate)
@@ -99,7 +99,7 @@ rm(list = ls()[grep("^climate", ls())]) #deletes any dataset with word 'climate'
 rm(list = ls()[grep("^case", ls())]) #deletes any dataset with word 'case'
 
 #=====================================================================================
-#using decompose function to detrend time series
+#using decompose function to detrend time series. Only if you have evenly (monthly) spaced observations in time series
 
 #decompose iNTS
 ts_iNTS = ts(iNTS$case_count, frequency = 12, start = c(2000,1), end = c(2015,12))
