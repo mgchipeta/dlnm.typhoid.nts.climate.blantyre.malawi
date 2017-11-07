@@ -15,30 +15,8 @@ library(data.table)
 library(tidyquant)
 
 
-#load climate
-#===========================================
-climate <- read.csv("/Users/dthindwa/Documents/PUBLICATION/Strataa/Time series/Data/Datasets in-use/climate.csv")
-
-#creating mean values for rainfall
-climate$rainfall <- (climate$chil_r + climate$chic_r)/2 
-
-#creating mean values for temperature
-climate$min_mean_t <- (climate$chil_mint + climate$chil_maxt)/2
-climate$max_mean_t <- (climate$chic_mint + climate$chic_maxt)/2
-climate$temperature <- (climate$min_mean_t + climate$max_mean_t)/2
-
-#creating mean values for humidity
-climate$humidity <- (climate$chil_h + climate$chic_h)/2
-
-#converting to date using lubridate package
-climate$climate_date <- dmy(climate$date)
-
-#final climate dataset to use
-climate <- subset(climate, select = c(climate_date, rainfall, temperature, humidity))
-
-
 #load typhoid/iNTS cases
-#=======================
+#================================================================
 case <- read.csv("/Users/dthindwa/Documents/PUBLICATION/Strataa/Time series/Data/Datasets in-use/case.csv")
 case$case_date <- dmy(case$date_s)
 case$sex <-case$gender
@@ -46,28 +24,53 @@ case$age <- case$age_yrs
 case$organism_type <- case$org_type
 case$organism <- case$org
 case$case_count <- c(1)
-
-#Final case dataset to use
 case <- subset(case, select = c(case_date, age, sex, organism_type, organism, case_count))
 
-#Time series manipulation for typhi & iNTS
-#=========================================
-#select cases of typhi only, or iNTS only
+#Time series manipulation for typhi & iNTS (select cases of typhi only, or iNTS only)
 case_typhi <- subset(case, organism == "typhi", select = c(case_date, age, sex, organism_type, organism, case_count))
 case_iNTS <- subset(case, organism == "iNTS", select = c(case_date, age, sex, organism_type, organism, case_count))
 
-#select counts of typhi or iNTS.
+#select typhi cases only, wrangle so that every date appears in the dataset (where no cases, put zero)
 case_typhi.x <- subset(case_typhi, select = c(case_date, case_count))
+case_typhi.x <-aggregate(case_typhi.x$case_count, by=list(case_typhi.x$case_date), FUN=sum, na.rm=TRUE)
+names(case_typhi.x) <- c("date", "case_count")
+alldates <- data.table(date=seq.Date(min(case$case_date), max(case$case_date), by="day"))
+case_typhi.x.w <- merge(case_typhi.x, alldates, by="date", all=TRUE)
+case_typhi.x.w[is.na(case_typhi.x.w)] <- 0
+
+#select iNTS cases only, wrangle so that every date appears in the dataset (where no cases put zero)
 case_iNTS.x <- subset(case_iNTS, select = c(case_date, case_count))
+case_iNTS.x <-aggregate(case_iNTS.x$case_count, by=list(case_iNTS.x$case_date), FUN=sum, na.rm=TRUE)
+names(case_iNTS.x) <- c("date", "case_count")
+alldates <- data.table(date=seq.Date(min(case$case_date), max(case$case_date), by="day"))
+case_iNTS.x.w <- merge(case_iNTS.x, alldates, by="date", all=TRUE)
+case_iNTS.x.w[is.na(case_iNTS.x.w)] <- 0
 
 #convert from data frame to xts for typhi or iNTS
-case_typhi.x = as.xts(case_typhi.x[,-1,drop = FALSE], order.by = as.Date(case_typhi.x[,1]))
-case_iNTS.x = as.xts(case_iNTS.x[,-1,drop = FALSE], order.by = as.Date(case_iNTS.x[,1]))
+case_typhi.x = as.xts(case_typhi.x.w[,-1,drop = FALSE], order.by = as.Date(case_typhi.x.w[,1]))
+case_iNTS.x = as.xts(case_iNTS.x.w[,-1,drop = FALSE], order.by = as.Date(case_iNTS.x.w[,1]))
 
 #generate monthly cases for typhi or iNTS
 case_typhi.x.w <- apply.monthly(case_typhi.x, FUN = sum)
 case_iNTS.x.w <- apply.monthly(case_iNTS.x, FUN = sum)
 
+
+#load climate
+#================================================================
+climate <- read.csv("/Users/dthindwa/Documents/PUBLICATION/Strataa/Time series/Data/Datasets in-use/climate.csv")
+
+#creating mean values for rainfall, temperature and humidity
+climate$rainfall <- (climate$chil_r + climate$chic_r)/2 
+climate$min_mean_t <- (climate$chil_mint + climate$chil_maxt)/2
+climate$max_mean_t <- (climate$chic_mint + climate$chic_maxt)/2
+climate$temperature <- (climate$min_mean_t + climate$max_mean_t)/2
+climate$humidity <- (climate$chil_h + climate$chic_h)/2
+
+#converting climate dataset to date using lubridate package
+climate$climate_date <- dmy(climate$date)
+
+#final climate dataset to use
+climate <- subset(climate, select = c(climate_date, rainfall, temperature, humidity))
 
 #Time series manipulation for rainfall, humidity, temperature
 #============================================================
@@ -94,12 +97,13 @@ humi <-climate_humi.x.w
 temp <-climate_temp.x.w
 rm(list = ls()[grep("^climate", ls())]) #deletes any dataset with word 'climate'
 rm(list = ls()[grep("^case", ls())]) #deletes any dataset with word 'case'
+rm(list = ls()[grep("^alldates", ls())]) #deletes any dataset with word 'alldates'
 
 #=====================================================================================
 #using decompose function to detrend time series. Only for evenly spaced time series
 #Window (Dates) could be changed depending on choose
 #decompose typhi
-ts_typhi = ts(typhi$case_count, frequency = 12, start = c(2011,1), end = c(2015,12))
+ts_typhi = ts(typhi$case_count, frequency = 12, start = c(2000,1), end = c(2015,12))
 decompose_typhi = decompose(ts_typhi, "multiplicative")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_typhi$seasonal))
@@ -127,7 +131,7 @@ plot(ts_iNTS)
 plot(recompose_iNTS)
 
 #decompose rains
-ts_rain = ts(rain$rainfall, frequency = 12, start = c(2011,1), end = c(2015,12))
+ts_rain = ts(rain$rainfall, frequency = 12, start = c(2000,1), end = c(2015,12))
 decompose_rain = decompose(ts_rain, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_rain$seasonal))
@@ -141,7 +145,7 @@ plot(ts_rain)
 plot(recompose_rain)
 
 #decompose temperature
-ts_temp = ts(temp$temperature, frequency = 12, start = c(2011,1), end = c(2015,12))
+ts_temp = ts(temp$temperature, frequency = 12, start = c(2000,1), end = c(2015,12))
 decompose_temp = decompose(ts_temp, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_temp$seasonal))
@@ -155,7 +159,7 @@ plot(ts_temp)
 plot(recompose_temp)
 
 #decompose humidity
-ts_humi = ts(humi$humidity, frequency = 12, start = c(2011,1), end = c(2015,12))
+ts_humi = ts(humi$humidity, frequency = 12, start = c(2000,1), end = c(2015,12))
 decompose_humi = decompose(ts_humi, "additive")
 par(mar=c(2,2,2,2)) #creates bigger plot space
 plot(as.ts(decompose_humi$seasonal))
