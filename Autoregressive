@@ -1,0 +1,461 @@
+#STRATAA vector time series analysis
+
+#following packages are loaded through my .Rprofile. You may wish to install & load them using library() function
+#"tidyverse", "zoo", "xts", "quantmod", "lubridate", "ggthemes", "ggfortify", "PerformanceAnalytics", "tidyquant", 
+#"reshape2", "data.table", "rugarch", "timetk", "parallel", "forecast", "timeSeries", "tseries", "here")
+install.packages("tidyverse", "zoo", "xts", "quantmod", "lubridate", "ggthemes", "ggfortify", "PerformanceAnalytics", "tidyquant", "reshape2", "data.table", "rugarch", "timetk", "parallel", "forecast", "timeSeries", "tseries")
+library("zoo", "xts", "quantmod", "lubridate")
+library("forecast")
+library("timeSeries", "tseries")
+#====================================================================================================================
+
+#load typhoid and iNTS cases dataset.
+case <- read.csv(here("Time.Series", "data", "case.csv"))
+case$case_date <- dmy(case$date_s)
+case$sex <-case$gender
+case$age <- case$age_yrs
+case$organism_type <- case$org_type
+case$organism <- case$org
+case$case_count <- c(1)
+case <- subset(case, select = c(case_date, age, sex, organism_type, organism, case_count))
+
+#create separate datasets for typhi and iNTS cases.
+case_typhi <- subset(case, organism == "typhi", select = c(case_date, age, sex, organism_type, organism, case_count))
+case_iNTS <- subset(case, organism == "iNTS", select = c(case_date, age, sex, organism_type, organism, case_count))
+
+#wrangle so that consecutive dates appear in the dataset of typhi. assign 0 to case_count when dates have no case.
+case_typhi.x <- subset(case_typhi, select = c(case_date, case_count))
+case_typhi.x <-aggregate(case_typhi.x$case_count, by=list(case_typhi.x$case_date), FUN=sum, na.rm=TRUE)
+names(case_typhi.x) <- c("date", "case_count")
+alldates <- data.table(date=seq.Date(min(case$case_date), max(case$case_date), by="day"))
+case_typhi.x.w <- merge(case_typhi.x, alldates, by="date", all=TRUE)
+case_typhi.x.w[is.na(case_typhi.x.w)] <- 0
+
+#wrangle so that consecutive dates appear in the dataset of iNTS. assign 0 to case_count when dates have no case.
+case_iNTS.x <- subset(case_iNTS, select = c(case_date, case_count))
+case_iNTS.x <-aggregate(case_iNTS.x$case_count, by=list(case_iNTS.x$case_date), FUN=sum, na.rm=TRUE)
+names(case_iNTS.x) <- c("date", "case_count")
+alldates <- data.table(date=seq.Date(min(case$case_date), max(case$case_date), by="day"))
+case_iNTS.x.w <- merge(case_iNTS.x, alldates, by="date", all=TRUE)
+case_iNTS.x.w[is.na(case_iNTS.x.w)] <- 0
+
+#Detect seasonality in the series using fourier transform so as to agregate data appropriately
+install.packages("TSA")
+library(TSA)
+# for iNTS
+p <- periodogram(case_iNTS.x.w$case_count)
+dd = data.frame(freq=p$freq, spec=p$spec)
+order = dd[order(-dd$spec),]
+top10 = head(order, 10)
+# display the 10 highest "power" frequencies
+top10
+#convert freq to time peiod (in days)
+time = 1/top10$f
+time
+# for typhi
+p <- periodogram(case_typhi.x.w$case_count)
+dd = data.frame(freq=p$freq, spec=p$spec)
+order = dd[order(-dd$spec),]
+top10 = head(order, 10)
+# display the 10 highest "power" frequencies
+top10
+#convert freq to time peiod (in days)
+time = 1/top10$f
+time
+
+#convert typhi and iNTS data frames to xts objects for use in time series.
+case_typhi.x = as.xts(case_typhi.x.w[,-1,drop = FALSE], order.by = as.Date(case_typhi.x.w[,1]))
+case_iNTS.x = as.xts(case_iNTS.x.w[,-1,drop = FALSE], order.by = as.Date(case_iNTS.x.w[,1]))
+
+#aggregate typhi and iNTS cases by week (chosen seasonality).
+case_typhi.x.wk <- apply.weekly(case_typhi.x, FUN = sum)
+case_iNTS.x.wk <- apply.weekly(case_iNTS.x, FUN = sum)
+
+#=====================================================================================================================
+
+#load climate dataset.
+climate <- read.csv(here("Time.Series", "data", "climate.csv"))
+
+#calculate daily average values for temperature, humidity and rainfall.
+climate$rainfall <- (climate$chil_r + climate$chic_r)/2 
+climate$temperature <- ((climate$chil_mint + climate$chil_maxt)/2 + (climate$chic_mint + climate$chic_maxt)/2)/2
+climate$humidity <- (climate$chil_h + climate$chic_h)/2
+climate$climate_date <- dmy(climate$date)
+climate <- subset(climate, select = c(climate_date, rainfall, temperature, humidity ))
+
+#create separate datasets for temperature, humidity and rainfall. these have complete daily values, no need to wrangle.
+climate_rain <- subset(climate, select = c(climate_date, rainfall))
+climate_humi <- subset(climate, select = c(climate_date, humidity))
+climate_temp <- subset(climate, select = c(climate_date, temperature))
+
+#convert temperature, humidity and rainfall data frames to xts objects for use in time series.
+climate_rain.x = as.xts(climate_rain[,-1,drop = FALSE], order.by = as.Date(climate_rain[,1]))
+climate_humi.x = as.xts(climate_humi[,-1,drop = FALSE], order.by = as.Date(climate_humi[,1]))
+climate_temp.x = as.xts(climate_temp[,-1,drop = FALSE], order.by = as.Date(climate_temp[,1]))
+
+##aggregate rainfall, humidity, and temperature cases by month.
+climate_rain.x.mo <- apply.monthly(climate_rain.x, FUN = mean)
+climate_humi.x.mo <- apply.monthly(climate_humi.x, FUN = mean)
+climate_temp.x.mo <- apply.monthly(climate_temp.x, FUN = mean)
+
+##aggregate rainfall, humidity, and temperature cases by week.
+climate_rain.x.wk <- apply.weekly(climate_rain.x, FUN = mean)
+climate_humi.x.wk <- apply.weekly(climate_humi.x, FUN = mean)
+climate_temp.x.wk <- apply.weekly(climate_temp.x, FUN = mean)
+
+typhi <-case_typhi.x.wk
+#typhi <-case_typhi.x.mo
+iNTS <-case_iNTS.x.wk
+#iNTS <-case_iNTS.x.mo
+rain <-climate_rain.x.wk
+#rain <-climate_rain.x.mo
+humi <-climate_humi.x.wk
+#humi <-climate_humi.x.mo
+temp <-climate_temp.x.wk
+#temp <-climate_temp.x.mo
+typnts <- case #dataset required for descriptive analysis e.g. age, sex, serotypes etc
+
+#delete the rest of datasets as they are unncessary in this analysis.
+rm(list = ls()[grep("^climate", ls())]) #deletes any dataset with word 'climate'
+rm(list = ls()[grep("^case", ls())]) #deletes any dataset with word 'case'
+rm(list = ls()[grep("^alldates", ls())]) #deletes any dataset with word 'alldates'
+
+#===================================================================================================================
+
+#converting xts objects for all 5 objects back to 5 tibbles for ggplotting.
+typhi.f <-tk_tbl(typhi, preserve_index = TRUE, rename_index = "date") 
+iNTS.f <-tk_tbl(iNTS, preserve_index = TRUE, rename_index = "date") 
+rain.f <-tk_tbl(rain, preserve_index = TRUE, rename_index = "date") 
+humi.f <-tk_tbl(humi, preserve_index = TRUE, rename_index = "date") 
+temp.f <-tk_tbl(temp, preserve_index = TRUE, rename_index = "date") 
+
+#==============FOR WEEKLY PLOTS======================================================================================
+
+#ggplot 1: iNTS v rainfall, humidity and temperature.
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = rain.f, aes(x=date, y=rainfall/0.6), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*0.6, name = "Rainfall [mm]")) + theme_classic() + ggtitle("Weekly rainfall and number of non-typhoid salmonella cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = temp.f, aes(x=date, y=temperature/0.7), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*0.7, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly temperature and number of non-typhoid salmonella cases)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = humi.f, aes(x=date, y=humidity/1.5), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*1.5, name = "Humidity [%]")) + theme_classic() + ggtitle("Weekly humidity and number of non-typhoid salmonella cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#ggplot 2: typhi v rainfall, humidity and temperature.
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = rain.f, aes(x=date, y=rainfall/1.0), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*1.0, name = "Rainfall [mm]")) + theme_classic() + ggtitle("Weekly rainfall and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = temp.f, aes(x=date, y=temperature*0.8), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~./0.8, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly temperature and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = humi.f, aes(x=date, y=humidity*0.2), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~./0.2, name = "Humidity [%]")) + theme_classic() + ggtitle("Weekly humidity and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#ggplot 3: rainfall v humidity v temperature.
+ggplot() + geom_line(data = rain.f, aes(x=date, y=rainfall), stat = "identity", colour="seagreen", size = 0.7) + geom_line(data = temp.f, aes(x=date, y=temperature/4), colour = "navy", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*4, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly rainfall  and temperature") + ylab('Rainfall [mm]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "navy", face = "bold"), axis.title.y = element_text(color="seagreen", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = humi.f, aes(x=date, y=humidity), stat = "identity", colour="orange4", size = 0.7) + geom_line(data = temp.f, aes(x=date, y=temperature/0.5), colour = "navy", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*0.5, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly humidity v temperature") + ylab('Humidity [%]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "navy", face = "bold"), axis.title.y = element_text(color="orange4", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = rain.f, aes(x=date, y=rainfall), stat = "identity", colour="seagreen", size = 0.7) + geom_line(data = humi.f, aes(x=date, y=humidity/8), colour = "orange4", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*8, name = "Humidity [%]")) + theme_classic() + ggtitle("Weekly rainfall and humidty") + ylab('Rainfall [mm]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "orange4", face = "bold"), axis.title.y = element_text(color="seagreen", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#ggplot 4: focus on year 2000-05 iNTS v rainfall, humidity and temperature.
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(rain.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=rainfall/0.6), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*0.6, name = "Rainfall [mm]")) + theme_classic() + ggtitle("Weekly rainfall and number of non-typhoid salmonella cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(temp.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=temperature/0.7), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*0.7, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly temperature and number of non-typhoid salmonella cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(humi.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=humidity/1.5), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*1.5, name = "Humidity [%]")) + theme_classic() + ggtitle("Weekly humidity and number of non-typhoid salmonella cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#ggplot 5: focus on year 2011-15 typhi v rainfall, humidity and temperature.
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(rain.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=rainfall/1.0), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~.*1.0, name = "Rainfall [mm]")) + theme_classic() + ggtitle("Weekly rainfall and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(temp.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=temperature*0.8), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~./0.8, name = "Temperature [°C]")) + theme_classic() + ggtitle("Weekly temperature and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 0.7) + geom_line(data = subset(humi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=humidity*0.2), colour = "blue", alpha = 0.7, size = 0.7) + scale_y_continuous(sec.axis = sec_axis(~./0.2, name = "Humidity [%]")) + theme_classic() + ggtitle("Weekly humidity and number of typhoid cases") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold")) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#==============FOR MONTHLY PLOTS======================================================================================
+
+#ggplot 1: iNTS v rainfall, humidity and temperature.
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = rain.f, aes(x=date, y=rainfall/0.1), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.1, name = "Rainfall [mm]")) + ggtitle("Monthly NTS Cases v Monthly Rainfall (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = temp.f, aes(x=date, y=temperature/0.4), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.4, name = "Temperature [°C]")) + ggtitle("Monthly NTS Cases v Monthly Temperature (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = iNTS.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = humi.f, aes(x=date, y=humidity/0.8), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.8, name = "Humidity [%]")) + ggtitle("Monthly NTS Cases v Monthly Humidity (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+
+#ggplot 2: typhi v rainfall, humidity and temperature.
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = rain.f, aes(x=date, y=rainfall/0.1), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.1, name = "Rainfall [mm]")) + ggtitle("Monthly Typhi Cases v Monthly Rainfall (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = temp.f, aes(x=date, y=temperature*2), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~./2, name = "Temperature [°C]")) + ggtitle("Monthly Typhi Cases v Monthly Temperature (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = typhi.f, aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = humi.f, aes(x=date, y=humidity*0.8), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~./0.8, name = "Humidity [%]")) + ggtitle("Monthly Typhi Cases v Monthly Humidity (2000-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+
+#ggplot 3: rainfall v humidity v temperature.
+ggplot() + geom_line(data = rain.f, aes(x=date, y=rainfall), stat = "identity", colour="seagreen", size = 1.0) + geom_line(data = temp.f, aes(x=date, y=temperature/4), colour = "navy", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*4, name = "Temperature [°C]")) + ggtitle("Rainfall v Temperature (2000 - 2015)") + ylab('Rainfall [mm]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "navy", face = "bold"), axis.title.y = element_text(color="seagreen", face = "bold"))
+ggplot() + geom_line(data = humi.f, aes(x=date, y=humidity), stat = "identity", colour="orange4", size = 1.0) + geom_line(data = temp.f, aes(x=date, y=temperature/0.5), colour = "navy", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.5, name = "Temperature [°C]")) + ggtitle("Humidity v Temperature (2000 - 2015)") + ylab('Humidity [%]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "navy", face = "bold"), axis.title.y = element_text(color="orange4", face = "bold"))
+ggplot() + geom_line(data = rain.f, aes(x=date, y=rainfall), stat = "identity", colour="seagreen", size = 1.0) + geom_line(data = humi.f, aes(x=date, y=humidity/8), colour = "orange4", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*8, name = "Humidity [%]")) + ggtitle("Rainfall v Humidty (2000 - 2015)") + ylab('Rainfall [mm]') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "orange4", face = "bold"), axis.title.y = element_text(color="seagreen", face = "bold"))
+
+#ggplot 4: focus on year 2000-05 iNTS v rainfall, humidity and temperature.
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(rain.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=rainfall/0.1), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.1, name = "Rainfall [mm]")) + ggtitle("Monthly NTS Cases v Monthly Rainfall (2000-2005)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(temp.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=temperature/0.3), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.3, name = "Temperature [°C]")) + ggtitle("Monthly NTS Cases v Monthly Temperature (2000-2005)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = subset(iNTS.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(humi.f, year(date)>=2000 & year(date)<=2005), aes(x=date, y=humidity/0.8), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.8, name = "Humidity [%]")) + ggtitle("Monthly NTS Cases v Monthly Humidity (2000-2005)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+
+#ggplot 5: focus on year 2011-15 typhi v rainfall, humidity and temperature.
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(rain.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=rainfall/0.1), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.1, name = "Rainfall [mm]")) + ggtitle("Monthly Typhi Cases v Monthly Rainfall (2011-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(temp.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=temperature/0.4), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*0.4, name = "Temperature [°C]")) + ggtitle("Monthly Typhi Cases v Monthly Temperature (2011-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+ggplot() + geom_line(data = subset(typhi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=case_count), stat = "identity", colour="red", size = 1.0) + geom_line(data = subset(humi.f, year(date)>=2011 & year(date)<=2015), aes(x=date, y=humidity/1), colour = "blue", alpha = 0.7, size = 1.0) + scale_y_continuous(sec.axis = sec_axis(~.*1, name = "Humidity [%]")) + ggtitle("Monthly Typhi Cases v Monthly Humidity (2011-2015)") + ylab('Cases') + xlab('Time') + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.title.y.right = element_text(color = "blue", face = "bold"), axis.title.y = element_text(color="red", face = "bold"))
+
+#===================================================================================================================
+
+#distributions of typhi and iNTS cases by sex, age or both.
+typnts$sex[typnts$sex == ""] <- NA
+typnts$age[typnts$age == ""] <- NA
+typnts$date <- ymd(typnts$case_date)
+typnts$year <- year(typnts$date)
+
+#categorize and label age into 5 year bands.
+cutx <- function(x, lower = 0, upper, by = 5, sep = "-", above.char = "+") {
+                    labs <- c(paste(seq(lower, upper - by, by = by),
+                    seq(lower + by - 1, upper - 1, by = by), 
+                    sep = sep),
+                    paste(upper, above.char, sep = ""))
+                    
+                    cut(floor(x), breaks = c(seq(lower, upper, by = by), Inf),
+                    right = FALSE, labels = labs)
+                    }
+typnts$agecat <- cutx(typnts$age, upper = 90)
+
+#frequency age distributions of typhi, iNTS, and overall by year.
+ggplot(subset(typnts, organism=="iNTS" & !is.na(age)),aes(x=age)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 15)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + facet_wrap(~year,nrow=4,dir="v") + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Age frequency of non-typhoid salmonella patients") + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, organism=="typhi" & !is.na(age)),aes(x=age)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 15)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + facet_wrap(~year,nrow=4,dir="v") + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Age frequency of typhoid patients") + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, !is.na(age)),aes(x=age, fill=organism, color=organism)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 15)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + facet_wrap(~year,nrow=4,dir="v") + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Age frequency of typhoid & non-typhoid salmonella patients") + theme(plot.title = element_text(hjust = 0.5), legend.position = 'bottom') + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#frequency age distributions of typhi, iNTS, and iNTS species.
+ggplot(subset(typnts, organism=="iNTS" & !is.na(age)),aes(x=age)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Overall age frequency of non-typhoidal patients") + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, organism=="typhi" & !is.na(age)),aes(x=age)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Overall age frequency of typhoidal patients") + theme(plot.title = element_text(hjust = 0.5)) + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, !is.na(age)),aes(x=age, fill=organism, color=organism)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Overall age frequency of typhoid & non-typhoidal patients") + theme(plot.title = element_text(hjust = 0.5), legend.position = 'bottom') + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, organism=="iNTS" & !is.na(age)),aes(x=age, fill=organism_type, color=organism_type)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=5, size = 1.0) + labs(x="Age (years)",y="Proportion of Cases") + ggtitle("Age frequency of non-typhoidal species") + theme(plot.title = element_text(hjust = 0.5), legend.position = 'bottom') + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#age and sex frequency distribution unstratified by year
+ggplot(subset(typnts, organism=="iNTS" & !is.na(age) & sex != "Unknown"),aes(x=age, fill=sex, color=sex)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=1, size = 1.0) + labs(x="Age (years)",y="Proportion of cases") + ggtitle("Age/sex Distribution NTS Cases 2000-2015") + theme(plot.title = element_text(hjust = 0.5), legend.position = 'bottom') + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+ggplot(subset(typnts, organism=="typhi" & !is.na(age) & sex != "Unknown"),aes(x=age, fill=sex, color=sex)) + theme_classic() + scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90, 5)) + geom_freqpoly(aes(y=..ncount..),binwidth=1, size = 1.0) + labs(x="Age (years)",y="Proportion of cases") + ggtitle("Age Distribution Typhi Cases 2000-2015") + theme(plot.title = element_text(hjust = 0.5), legend.position = 'bottom') + theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+#==============FOR WEEKLY TIME SERIES ANALYSIS=====================================================================================================
+
+#keep only relevant datasets for timeseries analysis
+rm(list = ls()[grep("f", ls())]) #deletes any dataset with word 'climate'
+rm(list = ls()[grep("^cutx", ls())]) #deletes any dataset with word 'case'
+rm(list = ls()[grep("^typnts", ls())]) #deletes any dataset with word 'alldates'
+
+#iNTS
+# 1). MA(q) visualize moving average
+iNTS.ma <- tk_tbl(iNTS, preserve_index = TRUE, rename_index = "date") 
+iNTS.ma$ma7 = ma(iNTS.ma$case_count, order=7, centre = TRUE)
+ggplot() + 
+  geom_line(data = iNTS.ma, aes(x= date, y= case_count, colour = "number of non-typhoidal patients per week")) + 
+  geom_line(data = iNTS.ma, aes(x= date, y= ma7, colour = "weekly moving average")) + 
+  scale_colour_manual(name="", values=c('weekly moving average'="black", 'number of non-typhoidal patients per week'="red")) + 
+  theme_classic() + ylab('Number of patients') + theme(legend.position = 'bottom') + 
+  labs(title="Centred moving average for non-typhoidal salmonella") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme(axis.text.x = element_text(face="bold", size=10), axis.text.y = element_text(face="bold", size=10))
+
+# 2). STL() decompose the non-typhoidal series
+iNTS_ma.ts = ts(na.omit(iNTS.ma$case_count), frequency = 52)
+stl_iNTS = stl(iNTS_ma.ts, "periodic")
+seasonal_stl_iNTS <- stl_iNTS$time.series[,1]
+trend_stl_iNTS <- stl_iNTS$time.series[,2]
+random_stl_iNTS <- stl_iNTS$time.series[,3]
+plot(iNTS_ma.ts)
+plot(seasonal_stl_iNTS)
+plot(trend_stl_iNTS)
+plot(random_stl_iNTS)
+plot(stl_iNTS, main = 'Decomposition of weekly non-typhoidal series')
+boxplot(seasonal_stl_iNTS, cycle(iNTS_ma.ts), main = 'Seasonality of non-typhoidal series')
+
+# 3). ADF Check stationarity
+adf.test(iNTS_ma.ts, alternative = "stationary")
+plot(iNTS_ma.ts)
+
+# 4). Analyze ACF + MA(q - number of lagged forecast errors in pred equa) and PACF + AR(p - number of autoregressive terms)
+Acf(iNTS.ma$ma7, lag.max = 160, main = 'ACF: Correlation between iNTS Series (MA) and its Lags') # iNTS.ma$30 is an MA series and includes f/l NAs
+Pacf(iNTS.ma$ma7, lag.max = 160, main = 'PACF: correlation between iNTS Variable and its lags')
+#significant autocorrelation in the ACF. PACF has spike at lag 1
+#we difference to get rid of autocorrelations
+
+# 5). Analyze ACF and PACF at first difference
+iNTS_deseas_d1 = diff(iNTS_deseas, differences = 1)
+plot(iNTS_deseas_d1)
+adf.test(iNTS_deseas_d1, alternative = "stationary")
+Acf(iNTS_deseas_d1, lag.max = 160, main = 'ACF: correlation between iNTS Series (MA) and its Lags after diff=1')
+Pacf(iNTS_deseas_d1, lag.max = 160, main = 'PACF: correlation between iNTS Variable (AR) and its lags after diff=1')
+#adf test does not reject null hypothesis of non-stationarity hence needs second differencing
+
+# 6). Analyze ACF and PACF at second difference
+iNTS_deseas_d2 = diff(iNTS_deseas, differences = 2)
+plot(iNTS_deseas_d2)
+adf.test(iNTS_deseas_d2, alternative = "stationary")
+Acf(iNTS_deseas_d2, lag.max = 160, main = 'ACF: correlation between iNTS Series (MA) and its Lags after diff=2')
+Pacf(iNTS_deseas_d2, lag.max = 160, main = 'PACF: correlation between iNTS Variable (AR) and its lags after diff=2')
+#adf test shows p=0.01 hence we reject the null hypothesis of non-statinarity
+#acf has lags at 1,4-6,11-12,16-19,21-23, pacf has lags at 1-2,4,6,10-11,18. 
+#hence potential lags include 1,4,6,11,18 since the are in both acf and pacf
+
+# 7). Autodefined order(p,d,q) using auto.arima function + Residual check based on autodefined pdq
+iNTS.model.check1 <- auto.arima(iNTS_deseas, seasonal=FALSE)
+tsdisplay(residuals(iNTS.model.check), lag.max = 160, main = 'AR(p).d.MA(q) ==> (1,2,2) Model Residuals')
+
+# 8). user defined order(p,d,q) explicitly + Residual check based on autodefined pdq
+iNTS.model.check2 <- arima(iNTS_deseas, order = c(12,2,30))
+tsdisplay(residuals(iNTS.model.check2), lag.max = 160, main = 'AR(p).d.MA(q) ==> (12,2,30) Model Residuals')
+#based on auto.arima acf/pacf output, decide on the user defined p,q. here 13 and 30 are selected.
+
+#9). forecasts
+iNTS.forecast <- forecast(iNTS.model.check2, h=48)
+plot(iNTS.forecast)
+#===================================================================================================================
+
+#rainfall
+# 1). MA(q) visualize moving average
+rain.ma <- tk_tbl(rain, preserve_index = TRUE, rename_index = "date") 
+rain.ma$ma30 = ma(rain.ma$rainfall, order=30, centre = TRUE)
+ggplot() +
+  geom_line(data = rain.ma, aes(x = rain.ma$date, y = rain.ma$ma30, colour = "Monthly Moving Average"))  +
+  geom_line(data = rain.ma, aes(x = rain.ma$date, y = rain.ma$rainfall, colour = "Monthly rains [mm]")) +
+  ylab('Rainfall [mm]')
+
+# 2). STL() decompose moving average
+rain_ma.ts = ts(na.omit(rain.ma$ma30), deltat = 1/12)
+rain_decomp = stl(rain_ma.ts, s.window="periodic")
+plot(rain_decomp, main = 'Decomposition of rain Series')
+rain_deseas <- seasadj(rain_decomp)
+plot(rain_deseas, main = 'Deseasoned rain Series')
+boxplot(rain_ma~cycle(rain_ma.ts), main = 'Seasonality of rain series')
+
+# 3). ADF Check stationarity
+adf.test(rain_ma.ts, alternative = "stationary")
+plot(rain_ma.ts)
+
+# 4). Analyze ACF + MA(q - number of lagged forecast errors in pred equa) and PACF + AR(p - number of autoregressive terms)
+Acf(rain.ma$ma30, lag.max = 160, main = 'ACF: Correlation between rain Series (MA) and its Lags') # rain.ma$30 is an MA series and includes f/l NAs
+Pacf(rain.ma$ma30, lag.max = 160, main = 'PACF: correlation between rain Variable and its lags')
+#significant autocorrelation in the ACF. PACF has spike at lag 1
+#we difference to get rid of autocorrelations
+
+# 5). Analyze ACF and PACF at first difference
+rain_deseas_d1 = diff(rain_deseas, differences = 1)
+plot(rain_deseas_d1)
+adf.test(rain_deseas_d1, alternative = "stationary")
+Acf(rain_deseas_d1, lag.max = 60, main = 'ACF: correlation between rain Series (MA) and its Lags after diff=1')
+Pacf(rain_deseas_d1, lag.max = 60, main = 'PACF: correlation between rain Variable (AR) and its lags after diff=1')
+#adf test shows p=0.01 hence we reject the null hypothesis of non-statinarity
+#acf has lags at 1,4,24-25,29-30, pacf has lags at 1-3,5-7,23,28-29,59. 
+#hence potential lags include 1,4,6,11,18 since the are in both acf and pacf
+
+# 7). Autodefined order(p,d,q) using auto.arima function + Residual check based on autodefined pdq
+rain.model.check1 <- auto.arima(rain_deseas, seasonal=FALSE)
+tsdisplay(residuals(rain.model.check1), lag.max = 60, main = 'AR(p).d.MA(q) ==> (1,2,2) Model Residuals')
+
+# 8). user defined order(p,d,q) explicitly + Residual check based on autodefined pdq
+rain.model.check2 <- arima(rain_deseas, order = c(24,1,30))
+tsdisplay(residuals(rain.model.check2), lag.max = 160, main = 'AR(p).d.MA(q) ==> (12,2,30) Model Residuals')
+#based on auto.arima acf/pacf output, decide on the user defined p,q. here 13 and 30 are selected.
+
+#9). forecasts
+rain.forecast <- forecast(rain.model.check2, h=48)
+plot(rain.forecast)
+#===================================================================================================================
+
+
+
+#keep only relevant datasets for timeseries analysis
+rm(list = ls()[grep("f", ls())]) #deletes any dataset with word 'climate'
+rm(list = ls()[grep("^cutx", ls())]) #deletes any dataset with word 'case'
+rm(list = ls()[grep("^typnts", ls())]) #deletes any dataset with word 'alldates'
+
+#iNTS
+# 1). MA(q) visualize moving average
+iNTS.ma <- tk_tbl(iNTS, preserve_index = TRUE, rename_index = "date") 
+iNTS.ma$ma30 = ma(iNTS.ma$case_count, order=7, centre = TRUE)
+ggplot() +
+  geom_line(data = iNTS.ma, aes(x = iNTS.ma$date, y = iNTS.ma$ma30, colour = "Weekly Moving Average")) + theme_classic() + geom_line(data = iNTS.ma, aes(x = iNTS.ma$date, y = iNTS.ma$case_count, colour = "Weekly Cases")) + ylab('Number of patients') + theme(legend.position = 'bottom')
+
+# 2). STL() decompose moving average
+iNTS_ma.ts = ts(na.omit(iNTS.ma$ma30), deltat = 1/12)
+iNTS_decomp = stl(iNTS_ma.ts, s.window="periodic")
+plot(iNTS_decomp, main = 'Decomposition of iNTS Series')
+iNTS_deseas <- seasadj(iNTS_decomp)
+plot(iNTS_deseas, main = 'Deseasoned iNTS Series')
+boxplot(iNTS_ma~cycle(iNTS_ma.ts), main = 'Seasonality of iNTS series')
+
+# 3). ADF Check stationarity
+adf.test(iNTS_ma.ts, alternative = "stationary")
+plot(iNTS_ma.ts)
+
+# 4). Analyze ACF + MA(q - number of lagged forecast errors in pred equa) and PACF + AR(p - number of autoregressive terms)
+Acf(iNTS.ma$ma30, lag.max = 160, main = 'ACF: Correlation between iNTS Series (MA) and its Lags') # iNTS.ma$30 is an MA series and includes f/l NAs
+Pacf(iNTS.ma$ma30, lag.max = 160, main = 'PACF: correlation between iNTS Variable and its lags')
+#significant autocorrelation in the ACF. PACF has spike at lag 1
+#we difference to get rid of autocorrelations
+
+# 5). Analyze ACF and PACF at first difference
+iNTS_deseas_d1 = diff(iNTS_deseas, differences = 1)
+plot(iNTS_deseas_d1)
+adf.test(iNTS_deseas_d1, alternative = "stationary")
+Acf(iNTS_deseas_d1, lag.max = 160, main = 'ACF: correlation between iNTS Series (MA) and its Lags after diff=1')
+Pacf(iNTS_deseas_d1, lag.max = 160, main = 'PACF: correlation between iNTS Variable (AR) and its lags after diff=1')
+#adf test does not reject null hypothesis of non-stationarity hence needs second differencing
+
+# 6). Analyze ACF and PACF at second difference
+iNTS_deseas_d2 = diff(iNTS_deseas, differences = 2)
+plot(iNTS_deseas_d2)
+adf.test(iNTS_deseas_d2, alternative = "stationary")
+Acf(iNTS_deseas_d2, lag.max = 160, main = 'ACF: correlation between iNTS Series (MA) and its Lags after diff=2')
+Pacf(iNTS_deseas_d2, lag.max = 160, main = 'PACF: correlation between iNTS Variable (AR) and its lags after diff=2')
+#adf test shows p=0.01 hence we reject the null hypothesis of non-statinarity
+#acf has lags at 1,4-6,11-12,16-19,21-23, pacf has lags at 1-2,4,6,10-11,18. 
+#hence potential lags include 1,4,6,11,18 since the are in both acf and pacf
+
+# 7). Autodefined order(p,d,q) using auto.arima function + Residual check based on autodefined pdq
+iNTS.model.check1 <- auto.arima(iNTS_deseas, seasonal=FALSE)
+tsdisplay(residuals(iNTS.model.check), lag.max = 160, main = 'AR(p).d.MA(q) ==> (1,2,2) Model Residuals')
+
+# 8). user defined order(p,d,q) explicitly + Residual check based on autodefined pdq
+iNTS.model.check2 <- arima(iNTS_deseas, order = c(12,2,30))
+tsdisplay(residuals(iNTS.model.check2), lag.max = 160, main = 'AR(p).d.MA(q) ==> (12,2,30) Model Residuals')
+#based on auto.arima acf/pacf output, decide on the user defined p,q. here 13 and 30 are selected.
+
+#9). forecasts
+iNTS.forecast <- forecast(iNTS.model.check2, h=48)
+plot(iNTS.forecast)
+#===================================================================================================================
+
+#rainfall
+# 1). MA(q) visualize moving average
+rain.ma <- tk_tbl(rain, preserve_index = TRUE, rename_index = "date") 
+rain.ma$ma30 = ma(rain.ma$rainfall, order=30, centre = TRUE)
+ggplot() +
+  geom_line(data = rain.ma, aes(x = rain.ma$date, y = rain.ma$ma30, colour = "Monthly Moving Average"))  +
+  geom_line(data = rain.ma, aes(x = rain.ma$date, y = rain.ma$rainfall, colour = "Monthly rains [mm]")) +
+  ylab('Rainfall [mm]')
+
+# 2). STL() decompose moving average
+rain_ma.ts = ts(na.omit(rain.ma$ma30), deltat = 1/12)
+rain_decomp = stl(rain_ma.ts, s.window="periodic")
+plot(rain_decomp, main = 'Decomposition of rain Series')
+rain_deseas <- seasadj(rain_decomp)
+plot(rain_deseas, main = 'Deseasoned rain Series')
+boxplot(rain_ma~cycle(rain_ma.ts), main = 'Seasonality of rain series')
+
+# 3). ADF Check stationarity
+adf.test(rain_ma.ts, alternative = "stationary")
+plot(rain_ma.ts)
+
+# 4). Analyze ACF + MA(q - number of lagged forecast errors in pred equa) and PACF + AR(p - number of autoregressive terms)
+Acf(rain.ma$ma30, lag.max = 160, main = 'ACF: Correlation between rain Series (MA) and its Lags') # rain.ma$30 is an MA series and includes f/l NAs
+Pacf(rain.ma$ma30, lag.max = 160, main = 'PACF: correlation between rain Variable and its lags')
+#significant autocorrelation in the ACF. PACF has spike at lag 1
+#we difference to get rid of autocorrelations
+
+# 5). Analyze ACF and PACF at first difference
+rain_deseas_d1 = diff(rain_deseas, differences = 1)
+plot(rain_deseas_d1)
+adf.test(rain_deseas_d1, alternative = "stationary")
+Acf(rain_deseas_d1, lag.max = 60, main = 'ACF: correlation between rain Series (MA) and its Lags after diff=1')
+Pacf(rain_deseas_d1, lag.max = 60, main = 'PACF: correlation between rain Variable (AR) and its lags after diff=1')
+#adf test shows p=0.01 hence we reject the null hypothesis of non-statinarity
+#acf has lags at 1,4,24-25,29-30, pacf has lags at 1-3,5-7,23,28-29,59. 
+#hence potential lags include 1,4,6,11,18 since the are in both acf and pacf
+
+# 7). Autodefined order(p,d,q) using auto.arima function + Residual check based on autodefined pdq
+rain.model.check1 <- auto.arima(rain_deseas, seasonal=FALSE)
+tsdisplay(residuals(rain.model.check1), lag.max = 60, main = 'AR(p).d.MA(q) ==> (1,2,2) Model Residuals')
+
+# 8). user defined order(p,d,q) explicitly + Residual check based on autodefined pdq
+rain.model.check2 <- arima(rain_deseas, order = c(12,2,30))
+tsdisplay(residuals(rain.model.check2), lag.max = 160, main = 'AR(p).d.MA(q) ==> (12,2,30) Model Residuals')
+#based on auto.arima acf/pacf output, decide on the user defined p,q. here 13 and 30 are selected.
+
+#9). forecasts
+rain.forecast <- forecast(rain.model.check2, h=48)
+plot(rain.forecast)
+#===================================================================================================================
+
