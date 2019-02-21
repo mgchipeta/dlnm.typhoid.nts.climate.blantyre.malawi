@@ -1,5 +1,5 @@
 #02/08/2018-30/11/2018
-#by Deus
+#by Deus Thindwa
 
 #========LOAD AND ATTACH REQUIRED PACKAGES========
 #Install required packages
