@@ -19,14 +19,17 @@ output:
 
 ##### Load required packages for entire analysis
 ```{r LoadPackages, results='hide', message=FALSE, warning=FALSE}
-dlnm.pkg <- c("tidyverse","lubridate","xts","ggthemes","PerformanceAnalytics","reshape2","rugarch","timetk","parallel","timeSeries","tseries","data.table","ggplot2","dlnm","broom","caret","gridExtra","splines","splines2","pspline","cowplot","mgcv","spi","chron","gridGraphics","grid","pscl","MASS", "AER", "Hmisc", "MuMIn", "VGAM", "forecast", "seasonal", "plotly", "ggmap", "rgdal", "rgeos", "tmap", "maptools", "maps", "ggfortify", "htmltools","webshot","knitr","flexdashboard", "imager", "here")
+dlnm.pkg <- c("tidyverse", "lubridate","xts","ggthemes","PerformanceAnalytics","reshape2","rugarch","timetk","parallel","timeSeries","tseries","data.table","ggplot2","dlnm","broom","caret","gridExtra","splines","splines2","pspline","cowplot","mgcv","spi","chron","gridGraphics","grid","pscl","MASS", "AER", "Hmisc", "MuMIn", "VGAM", "forecast", "seasonal", "plotly", "ggmap", "rgeos", "tmap", "maptools", "maps", "ggfortify", "htmltools","webshot","knitr","flexdashboard", "imager", "httr", "curl", "here")
 
 lapply(dlnm.pkg, library, character.only=TRUE)
 ``` 
 
 ##### Load Malawi map dataset
 ```{r LoadMWMap, results="hide"}
-malawi.map <- readOGR(dsn = "Time.Series/dlnm_analysis", layer="malawi_map")
+dlnmtmp <- tempfile()
+download.file("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/malawi_map.zip", destfile=dlnmtmp)
+unzip(dlnmtmp, exdir = ".")
+malawi.map <- rgdal::readOGR(".","malawi_map")
 ```
 
 ##### Subset Blantyre map
@@ -44,8 +47,8 @@ blantyre.map$id <- as.integer(blantyre.map$id)
 
 ##### Load demographics and features dataset
 ```{r LoadDemoDS, results="hide", message=FALSE, warning=FALSE}
-map.features <- read.csv(here("Time.Series", "dlnm_analysis", "blantyre_features.csv"))
-blantyre.demog <- read.csv(here("Time.Series", "dlnm_analysis", "blantyre_demog.csv"))
+blantyre.demog <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/blantyre_demog.csv"))
+map.features <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/blantyre_features.csv"))
 blantyre.demog$id <- as.integer(blantyre.demog$id)
 map.all <- merge(x=blantyre.map, y=blantyre.demog, by="id", x.all=TRUE)
 rm(list = ls()[grep("^blantyre", ls())])
@@ -69,7 +72,7 @@ ggplot() +
 
 ##### Load case dataset and subset by serovar
 ```{r LoadCaseDS, results="hide", message=FALSE, warning=FALSE}
-case <- read.csv(here("Time.Series", "dlnm_analysis", "case.csv"))
+case <-read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/case.csv"))
 case$case_date <- dmy(case$case_date)
 case$case_count <- c(1)
 case.typhi <- subset(case, organism=="typhi")
@@ -99,7 +102,7 @@ case.iNTS <- apply.monthly(case.iNTS, FUN=sum)
 
 ##### Load climate dataset
 ```{r LoadClimateDS, results="hide", message=FALSE, warning=FALSE}
-climate <- read.csv(here("Time.Series", "dlnm_analysis", "climate.csv"))
+climate <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/climate.csv"))
 ```
 
 ##### Define rain/temp between chileka & chichiri stations
@@ -548,13 +551,4 @@ YD4 <- plot(nts.pred.rain, "slices", xlab="Lag (month)", var=c(9), col="orange2"
     ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
 ```
 
-```{r }
-plots <- list()  # new empty list
-plots[[1]] <- YD1  # add each plot into plot list
-plots[[2]] <- YD2 
-plots[[3]] <- YD3
-plots[[4]] <- YD4 
-
-multipanel(plotlist = plots)
-```
 
