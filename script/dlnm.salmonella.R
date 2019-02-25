@@ -3,14 +3,17 @@
 
 #========LOAD AND ATTACH REQUIRED PACKAGES========
 #Install required packages
-dlnm.analysis.packages <- c("tidyverse","lubridate","xts","ggthemes","PerformanceAnalytics","reshape2","rugarch","timetk","parallel","timeSeries","tseries","data.table","ggplot2","dlnm","broom","caret","gridExtra","splines","splines2","pspline","cowplot","mgcv","spi","chron","gridGraphics","grid","pscl","MASS", "AER", "Hmisc", "MuMIn", "VGAM", "forecast", "seasonal", "plotly", "ggmap", "rgdal", "rgeos", "tmap", "maptools", "maps", "ggfortify", "here")
+dlnm.analysis.packages <- c("tidyverse", "lubridate","xts","ggthemes","PerformanceAnalytics","reshape2","rugarch","timetk","parallel","timeSeries","tseries","data.table","ggplot2","dlnm","broom","caret","gridExtra","splines","splines2","pspline","cowplot","mgcv","spi","chron","gridGraphics","grid","pscl","MASS", "AER", "Hmisc", "MuMIn", "VGAM", "forecast", "seasonal", "plotly", "ggmap", "rgeos", "tmap", "maptools", "maps", "ggfortify", "htmltools","webshot","knitr","flexdashboard", "imager", "httr", "curl", "here")
 
 #load required packages
 lapply(dlnm.analysis.packages, library, character.only=TRUE)
 
 #========DRAW MAP OF BLANTYRE========
 #load shape file of malawi map located in directory "Time.Series/data"
-malawi.map<- readOGR(dsn = "Time.Series/dlnm_analysis", layer = "malawi_map")
+dlnmtmp <- tempfile()
+download.file("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/malawi_map.zip", destfile=dlnmtmp)
+unzip(dlnmtmp, exdir = ".")
+malawi.map <- rgdal::readOGR(".","malawi_map")
 
 #subsetting to get blantyre map only
 blantyre1.map <- malawi.map@data$OBJECTID >289 & malawi.map@data$OBJECTID <297 #id from 290 to 296 
@@ -22,8 +25,8 @@ blantyre.map <- rbind(fortify(malawi.map[blantyre1.map,]), fortify(malawi.map[bl
 blantyre.map$id <- as.integer(blantyre.map$id)
 
 #merge the blantyre map dataset with location attributes datasets
-map.features <- read.csv(here("Time.Series", "dlnm_analysis", "blantyre_features.csv"))
-blantyre.demog <- read.csv(here("Time.Series", "dlnm_analysis", "blantyre_demog.csv"))
+blantyre.demog <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/blantyre_demog.csv"))
+map.features <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/blantyre_features.csv"))
 blantyre.demog$id <- as.integer(blantyre.demog$id)
 map.all <- merge(x=blantyre.map, y=blantyre.demog, by="id", x.all=TRUE)
 rm(list = ls()[grep("^blantyre", ls())])
@@ -42,7 +45,7 @@ ggplot() +
 
 #========LOAD CASE DATA========
 #load typhoid and NTS cases dataset.
-case <- read.csv(here("Time.Series", "dlnm_analysis", "case.csv"))
+case <-read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/case.csv"))
 case$case_date <- dmy(case$case_date)
 case$case_count <- c(1)
 
@@ -72,7 +75,7 @@ case.iNTS <- apply.monthly(case.iNTS, FUN = sum)
 
 #========LOAD CLIMATE DATA========
 #load climate dataset.
-climate <- read.csv(here("Time.Series", "dlnm_analysis", "climate.csv"))
+climate <- read.csv(curl("https://raw.githubusercontent.com/deusthindwa/dlnm.typhoid.nts.climate.blantyre.malawi/master/data/climate.csv"))
 
 #calculate daily average values for temperature and rainfall.
 climate$climate_date <- dmy(climate$date)
@@ -393,6 +396,7 @@ YMD1<-plot_ly(x = c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010), y =
 colorbar(title = "NTS incidence per \n 100,000 population") %>%
 layout(title="A", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
 YMD1
+write.csv2(case.iNTS.spi, file = "case.iNTS.spi.csv")
 
 case.typhi.spi <- subset(case.typhi, year(case.typhi$date)>2010, select=c(date,incid_sea)) 
 case.typhi.spi$month <- month(case.typhi.spi$date)
@@ -403,6 +407,7 @@ case.typhi.spi <- as.matrix(case.typhi.spi)[,-1]
 plot_ly(x = c(2011,2012,2013,2014,2015), y = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), z = ~case.typhi.spi, type = "contour", colorscale = 'heatmap', contours = list(showlabels = TRUE)) %>% 
 colorbar(title = "Typhoid incidence per \n 100,000 population") %>%
 layout(title="D", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
+write.csv2(case.typhi.spi, file = "case.typhi.spi.csv")
 
 climate.rain.spin <- subset(climate.rain, year(climate.rain$date)<2011, select=c(date,rainfall_obs)) 
 climate.rain.spin$month <- month(climate.rain.spin$date)
@@ -413,6 +418,7 @@ climate.rain.spin <- as.matrix(climate.rain.spin)[,-1]
 plot_ly(x = c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010), y = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), z = ~climate.rain.spin, type = "contour", colorscale = 'heatmap', contours = list(showlabels = TRUE)) %>% 
 colorbar(title = "Rainfall (mm)") %>%
 layout(title="B", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
+write.csv2(climate.rain.spin, file = "climate.rain.nts.csv")
 
 climate.rain.spit <- subset(climate.rain, year(climate.rain$date)>2010, select=c(date,rainfall_obs)) 
 climate.rain.spit$month <- month(climate.rain.spit$date)
@@ -423,6 +429,7 @@ climate.rain.spit <- as.matrix(climate.rain.spit)[,-1]
 plot_ly(x = c(2011,2012,2013,2014,2015), y = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), z = ~climate.rain.spit, type = "contour", colorscale = 'heatmap', contours = list(showlabels = TRUE)) %>% 
 colorbar(title = "Rainfall (mm)") %>%
 layout(title="E", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
+write.csv2(climate.rain.spit, file = "climate.rain.typ.csv")
 
 climate.temp.spin <- subset(climate.temp, year(climate.temp$date)<2011, select=c(date,temperature_obs)) 
 climate.temp.spin$month <- month(climate.temp.spin$date)
@@ -433,6 +440,7 @@ climate.temp.spin <- as.matrix(climate.temp.spin)[,-1]
 plot_ly(x = c(2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010), y = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), z = ~climate.temp.spin, type = "contour", colorscale = 'heatmap', contours = list(showlabels = TRUE)) %>% 
 colorbar(title = "Temperature (°C)") %>%
 layout(title="C", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
+write.csv2(climate.temp.spin, file = "climate.temp.nts.csv")
 
 climate.temp.spit <- subset(climate.temp, year(climate.temp$date)>2010, select=c(date,temperature_obs)) 
 climate.temp.spit$month <- month(climate.temp.spit$date)
@@ -443,6 +451,7 @@ climate.temp.spit <- as.matrix(climate.temp.spit)[,-1]
 plot_ly(x = c(2011,2012,2013,2014,2015), y = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), z = ~climate.temp.spit, type = "contour", colorscale = 'heatmap', contours = list(showlabels = TRUE)) %>% 
 colorbar(title = "Temperature (°C)") %>%
 layout(title="F", xaxis=list(title ="Year"), yaxis=list(title="Month"), font=list(size = 13))
+write.csv2(climate.temp.spit, file = "climate.temp.typ.csv")
 
 #========CROSS-BASIS MODEL SELECTION FOR NTS OUTCOME========
 
@@ -544,20 +553,6 @@ plot(mo.pred.rain.iNTS, xlab="Rainfall (mm)", ylab="Lag (month)", zlab="RR of NT
 plot(mo.pred.rain.iNTS, "contour", key.title=title("NTS"), plot.title=title("B", xlab ="Rainfall (mm)", ylab = "Lag (month)", cex.lab=1.1, cex.axis=1.1))
 plot(mo.pred.rain.iNTS, "slices", xlab="Rainfall (mm)", lag=c(2), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="C")
 plot(mo.pred.rain.iNTS, "slices", xlab="Lag (month)", var=c(9), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
-
-close.screen(all=TRUE)
-par(bg="white")
-split.screen(c(2,2)) #defines rows, columns
-screen(1) # prepare screen 1 for output
-p1
-screen(2) # prepare screen 2 for output
-p2
-screen(3) # prepare screen 4 for output
-p3
-screen(4)
-p4
-close.screen(all=TRUE)    # exit split-screen mode
-
 
 #3D, countour, curve plots for temperature
 dev.off()
@@ -710,14 +705,13 @@ mo.cb.temp.iNTS <- crossbasis(mo.dlnmN$temperature_obs, lag=8, argvar=list(knots
 summary(mo.cb.temp.iNTS)
 
 #model fit
-mo.model.iNTS.sens1 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-2
-mo.model.iNTS.sens2 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-3
-mo.model.iNTS.sens3 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-4
-mo.model.iNTS.sens4 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-7
-mo.model.iNTS.sens5 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-10
-mo.model.iNTS.sens6 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #model-19
-mo.model.iNTS.sens7 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + ns(year,11), family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #longterm trend as spline
-mo.model.iNTS.sens8 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + ns(year), family = quasipoisson(), na.action=na.exclude, mo.dlnmN) #longterm trend as spline
+mo.model.iNTS.sens1 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens2 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens3 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens4 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens5 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens6 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + year, family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
+mo.model.iNTS.sens7 <- glm(incid_seaX ~  mo.cb.rain.iNTS + mo.cb.temp.iNTS + ns(year,11), family = quasipoisson(), na.action=na.exclude, mo.dlnmN)
 
 #model validation check
 dev.off()
