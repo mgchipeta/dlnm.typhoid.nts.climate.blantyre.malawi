@@ -866,7 +866,7 @@ mo.model.typhoidT.sens7 <- update(mo.model.typhoidT.sens7,.~.+Lag(residuals(mo.m
 pacf(residuals(mo.model.typhoidT.sens8,type="deviance"),na.action=na.omit,main="Autocorrelation from original model",xlim=c(0,8))
 mo.model.typhoidT.sens8 <- update(mo.model.typhoidT.sens8,.~.+Lag(residuals(mo.model.typhoidT.sens8,type="deviance"),1)) #add residuals at lag 1 to significantly reduce partial autocorrelation
 
-#model prediction
+#model predictions
 mo.pred.rain.typhoid.sens1 <- crosspred(mo.cb.rain.typhoid, mo.model.typhoidR.sens1, cen = 23, by=0.2)
 mo.pred.rain.typhoid.sens2 <- crosspred(mo.cb.rain.typhoid, mo.model.typhoidR.sens2, cen = 23, by=0.2)
 mo.pred.rain.typhoid.sens3 <- crosspred(mo.cb.rain.typhoid, mo.model.typhoidR.sens3, cen = 23, by=0.2)
