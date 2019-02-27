@@ -524,13 +524,13 @@ for(k in 3:5){
 #construct cross-basis
 sort(mo.dlnmN$rainfall_obs, decreasing=FALSE)
 varknots=equalknots(mo.dlnmN$rainfall_obs, fun="ns", df=3)
-lagknots <- logknots(8, fun="ns", df=3)
+lagknots <- logknots(8, fun="ns", df=4)
 mo.cb.rain.iNTS <- crossbasis(mo.dlnmN$rainfall_obs, lag =8, argvar = list(knots=varknots), arglag = list(knots=lagknots))
 summary(mo.cb.rain.iNTS)
 
 sort(mo.dlnmN$temperature_obs, decreasing=FALSE)
 varknots=equalknots(mo.dlnmN$temperature_obs, fun="ns", df=3)
-lagknots <- logknots(8, fun="ns", df=3)
+lagknots <- logknots(8, fun="ns", df=4)
 mo.cb.temp.iNTS <- crossbasis(mo.dlnmN$temperature_obs, lag=8, argvar=list(knots=varknots), arglag=list(knots=lagknots))
 summary(mo.cb.temp.iNTS)
 
