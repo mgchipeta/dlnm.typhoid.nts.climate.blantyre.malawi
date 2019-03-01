@@ -550,26 +550,26 @@ dev.off()
 jpeg("nts.pred.temp.png", width=900,height=600)
 plot(nts.pred.temp, "contour", key.title=title("NTS"), plot.title=title("", xlab ="Temperature (°C)", ylab = "Lag (month)", cex.lab=1.7, cex.axis=1.7))
 dev.off()
+plot(load.image("nts.pred.rain.png"), main="B")
+plot(load.image("nts.pred.temp.png"), main="B")
 ```
 
 ##### Plots of NTS predictions due to rainfall (Figure 4)
-```{r predictRainNTS, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=7, fig.width=12}
-par(mfrow=c(2,3))
+```{r predictRainNTS, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=8, fig.width=12}
+par(mfrow=c(2,2))
 plot(nts.pred.rain, xlab="Rainfall (mm)", ylab="Lag (month)", zlab="RR of NTS", theta=150, phi=5, lphi=100, cex.lab=1.1, cex.axis=1.1, col="gray80",main="A")
-plot(load.image("nts.pred.rain.png"), main="B")
-plot(nts.pred.rain, "slices", xlab="Rainfall (mm) [given lag 2]", lag=c(2), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="C")
-plot(nts.pred.rain, "slices", xlab="lag (month) [given 9 mm] ", var=c(9), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
-plot(nts.pred.rain, "slices", xlab="lag (month) [given 13 mm] ", var=c(13), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="E")
+plot(nts.pred.rain, "slices", xlab="Rainfall (mm) [given lag 2]", lag=c(2), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="B")
+plot(nts.pred.rain, "slices", xlab="lag (month) [given 9 mm] ", var=c(9), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="C")
+plot(nts.pred.rain, "slices", xlab="lag (month) [given 13 mm] ", var=c(13), col="orange2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95, ci='b', lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
 ```
 
 ##### Plots of NTS predictions due to temperature (Figure 6)
-```{r predictTempNTS, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=7, fig.width=12}
-par(mfrow=c(2,3))
+```{r predictTempNTS, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=8, fig.width=12}
+par(mfrow=c(2,2))
 plot(nts.pred.temp, xlab="Temperature (°C)", ylab="Lag (month)", zlab="RR of NTS", theta=150, phi=5, lphi=100, cex.lab=1, cex.axis=1, col="gray80",main="A")
-plot(load.image("nts.pred.temp.png"), main="B")
-plot(nts.pred.temp, xlab="Temperature (°C) [given lag 3]", "slices",lag=c(3), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="C")
-plot(nts.pred.temp, xlab="Lag (month) [given 19 °C]", "slices",var=c(19), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
-plot(nts.pred.temp, xlab="Lag (month) [given 29 °C]", "slices",var=c(29), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="E")
+plot(nts.pred.temp, xlab="Temperature (°C) [given lag 3]", "slices",lag=c(3), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="B")
+plot(nts.pred.temp, xlab="Lag (month) [given 19 °C]", "slices",var=c(19), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="C")
+plot(nts.pred.temp, xlab="Lag (month) [given 29 °C]", "slices",var=c(29), col="orange2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95, ci='b',lwd=4.5, ylab="RR of NTS", cex.lab=1.1, cex.axis=1.1,main="D")
 ```
 
 ##### Reformulate cross-basis matrix using selected best Typhoid models
@@ -616,65 +616,68 @@ dev.off()
 jpeg("typ.pred.temp.png", width=900,height=600)
 plot(typ.pred.temp, "contour", key.title=title("TYP"), plot.title=title("", xlab ="Temperature (°C)", ylab = "Lag (month)", cex.lab=1.7, cex.axis=1.7))
 dev.off()
+plot(load.image("typ.pred.rain.png"), main="B")
+plot(load.image("typ.pred.temp.png"), main="B")
 ```
 
 ##### Plots of TYP predictions due to rainfall (Figure 5)
-```{r predictRainTYP, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=7, fig.width=12}
-par(mfrow=c(2,3))
-plot(typ.pred.rain, xlab="Rainfall (mm)", ylab="Lag (month)", zlab="RR of typhoid", theta=150, phi=5, lphi=150, col="gray80", main="A", cex.lab=1.1, cex.axis=1.1)
-plot(load.image("typ.pred.rain.png"), main="B")
-plot(typ.pred.rain, xlab="Rainfall (mm) [given lag 4]", "slices", lag=c(4), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="C")
-plot(typ.pred.rain, xlab="Lag (month) [given 9 mm]", "slices", var=c(9), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="D")
-plot(typ.pred.rain, xlab="Lag (month) [given 16 mm]", "slices", var=c(16), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="E")
+```{r predictRainTYP, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=8, fig.width=12}
+par(mfrow=c(2,2))
+plot(typ.pred.rain, xlab="Rainfall (mm)", ylab="Lag (month)", zlab="RR of typhoid", theta=210, phi=10, lphi=150, col="gray80", main="A", cex.lab=1.1, cex.axis=1.1)
+plot(typ.pred.rain, xlab="Rainfall (mm) [given lag 4]", "slices", lag=c(4), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="B")
+plot(typ.pred.rain, xlab="Lag (month) [given 9 mm]", "slices", var=c(9), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="C")
+plot(typ.pred.rain, xlab="Lag (month) [given 16 mm]", "slices", var=c(16), col="red2", ci.arg=list(col=topo.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="D")
 ```
 
 ##### Plots of TYP predictions due to temperature (Figure 7)
-```{r predictTempTYP, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=7, fig.width=12}
+```{r predictTempTYP, results="hide", message=FALSE, warning=FALSE, fig.align='center', fig.height=8, fig.width=12}
 par(mfrow=c(2,3))
 plot(typ.pred.temp, xlab="Temperature (°C)", ylab="Lag (month)", zlab="RR of typhoid", theta=150, phi=5, lphi=100, col="gray80", main="A", cex.lab=1.1, cex.axis=1.1)
-plot(load.image("typ.pred.temp.png"), main="B")
-plot(typ.pred.temp, xlab="Temperature (°C) [given lag 2]", "slices", lag=c(2), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="C")
-plot(typ.pred.temp, xlab="Temperature (°C) [given lag 5]", "slices", lag=c(5), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="D")
-plot(typ.pred.temp, xlab="Lag (month) [given 19 °C]", "slices", var=c(19), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="E")
-plot(typ.pred.temp, xlab="Lag (month) [given 25 °C]", "slices", var=c(25), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="F")
+plot(typ.pred.temp, xlab="Temperature (°C) [given lag 2]", "slices", lag=c(2), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="B")
+plot(typ.pred.temp, xlab="Temperature (°C) [given lag 5]", "slices", lag=c(5), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="C")
+plot(typ.pred.temp, xlab="Lag (month) [given 19 °C]", "slices", var=c(19), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="D")
+plot(typ.pred.temp, xlab="Lag (month) [given 25 °C]", "slices", var=c(25), col="red2", ci.arg=list(col=terrain.colors(70, alpha = 1)), ci.level=0.95,ci='b', lwd=4.5, ylab="RR of typhoid", cex.lab=1.1, cex.axis=1.1,main="E")
 ```
 
 ##### Plots of validation checks (Supplementary Figure S4)
-```{r validationCheck, results="hide", message=FALSE, warning=FALSE, fig.width=12, fig.height = 7, fig.align='center'}
+```{r validationCheck, results="hide", message=FALSE, warning=FALSE, fig.width=12, fig.height=8, fig.align='center'}
 par(mfrow=c(3,4))
 plot(mo.dlnmN$date, residuals(nts.model,type="deviance"), pch=19, cex=0.8, col=grey(0.4),main="A", ylab="Residuals",xlab="",cex.lab=1.2,cex.axis=1.2) 
 abline(h=0,lty=2,lwd=3)
 pacf(residuals(nts.model,type="deviance"),na.action=na.omit,main="B",xlim=c(0,8),xlab="", cex.lab=1.2,cex.axis=1.2)
 acf(residuals(nts.model,type="deviance"),na.action=na.omit,main="C",xlim=c(0,8),xlab="", cex.lab=1.2,cex.axis=1.2)
 plot(matrix(mo.dlnmN$incid_seaX),matrix(predict(nts.model, type="response")), col=c("orange2","gray2"),xlab="Predicted NTS incidence", ylab="Observed NTS incidence",pch=19,cex=0.8,cex.lab=1.2,cex.axis=1.2)
-legend("topleft", legend=c("observed", "predicted"), col=c("grey10", "orange2"), cex=0.8, pch=19)
+legend("topleft", legend=c("observed", "predicted"), col=c("grey30", "orange2"), cex=0.8, pch=19)
 
 plot(mo.dlnmT$date, residuals(typ.modelR,type="deviance"), pch=19, cex=0.8, col=grey(0.6),main="E", ylab="Residuals",xlab="",cex.lab=1.2,cex.axis=1.2)
 abline(h=0,lty=2,lwd=3)
 pacf(residuals(typ.modelR,type="deviance"),na.action=na.omit,main="F",xlim=c(0,8),xlab="",cex.lab=1.2, cex.axis=1.2)
 acf(residuals(typ.modelR,type="deviance"),na.action=na.omit,main="G",xlim=c(0,8),xlab="",cex.lab=1.2, cex.axis=1.2)
 plot(matrix(mo.dlnmT$incid_seaX),matrix(predict(typ.modelR, type="response")), col=c("red2","gray2"),xlab="Predicted typhoid incidence", ylab="Observed typhoid incidence",pch=19,cex=0.8,cex.lab=1.2,cex.axis=1.2)
-legend("topleft", legend=c("observed", "predicted"), col=c("grey10", "red2"), cex=0.8, pch=19)
+legend("topleft", legend=c("observed", "predicted"), col=c("grey30", "red2"), cex=0.8, pch=19)
 
 plot(mo.dlnmT$date, residuals(typ.modelT,type="deviance"), pch=19, cex=0.8, col=grey(0.6),main="I", ylab="Residuals", xlab="Year",cex.lab=1.2,cex.axis=1.2) 
 abline(h=0,lty=2,lwd=3)
 pacf(residuals(typ.modelT,type="deviance"),na.action=na.omit,main="J",xlim=c(0,8),xlab="Lag (month)",cex.lab=1.2, cex.axis=1.2)
 acf(residuals(typ.modelT,type="deviance"),na.action=na.omit,main="K",xlim=c(0,8),xlab="Lag (month)",cex.lab=1.2, cex.axis=1.2)
 plot(matrix(mo.dlnmT$incid_seaX),matrix(predict(typ.modelT, type="response")), col=c("red2","gray2"),xlab="Predicted typhoid incidence", ylab="Observed typhoid incidence",pch=19,cex=0.8,cex.lab=1.2,cex.axis=1.2)
-legend("topleft", legend=c("observed", "predicted"), col=c("grey10", "red2"), cex=0.8, pch=19)
+legend("topleft", legend=c("observed", "predicted"), col=c("grey30", "red2"), cex=0.8, pch=19)
 ```
 
 ##### Plots of predictions due to rainfall/temperature (Table 1)
-```{r predictEstimates, fig.align='center', fig.width=14, message=FALSE, warning=FALSE}
-nts.pred.rain$matRRfit["9",];nts.pred.rain$matRRlow["9",];nts.pred.rain$matRRhigh["9",]
-nts.pred.rain$matRRfit["13",];nts.pred.rain$matRRlow["13",];nts.pred.rain$matRRhigh["13",]
-nts.pred.temp$matRRfit["19",];nts.pred.temp$matRRlow["19",];nts.pred.temp$matRRhigh["19",]
-nts.pred.temp$matRRfit["29",];nts.pred.temp$matRRlow["29",];nts.pred.temp$matRRhigh["29",]
-typ.pred.rain$matRRfit["9",];typ.pred.rain$matRRlow["9",];typ.pred.rain$matRRhigh["9",]
-typ.pred.rain$matRRfit["16",];typ.pred.rain$matRRlow["16",];typ.pred.rain$matRRhigh["16",]
-typ.pred.temp$matRRfit["19",];typ.pred.temp$matRRlow["19",];typ.pred.temp$matRRhigh["19",]
-typ.pred.temp$matRRfit["25",];typ.pred.temp$matRRlow["25",];typ.pred.temp$matRRhigh["25",]
+```{r predictEstimates, fig.align='center', message=FALSE, warning=FALSE}
+RRTable <- data.frame(rbind(nts.pred.rain$matRRfit["9",], nts.pred.rain$matRRlow["9",], nts.pred.rain$matRRhigh["9",],
+                 nts.pred.rain$matRRfit["13",],nts.pred.rain$matRRlow["13",],nts.pred.rain$matRRhigh["13",],
+                 nts.pred.temp$matRRfit["19",],nts.pred.temp$matRRlow["19",],nts.pred.temp$matRRhigh["19",],
+                 nts.pred.temp$matRRfit["29",],nts.pred.temp$matRRlow["29",],nts.pred.temp$matRRhigh["29",],
+                 typ.pred.rain$matRRfit["9",],typ.pred.rain$matRRlow["9",],typ.pred.rain$matRRhigh["9",],
+                 typ.pred.rain$matRRfit["16",],typ.pred.rain$matRRlow["16",],typ.pred.rain$matRRhigh["16",],
+                 typ.pred.temp$matRRfit["19",],typ.pred.temp$matRRlow["19",],typ.pred.temp$matRRhigh["19",],
+                 typ.pred.temp$matRRfit["25",],typ.pred.temp$matRRlow["25",],typ.pred.temp$matRRhigh["25",]
+                 ))
+kable(RRTable)
 ```
+
 
 ##### Vary degrees of freedom for sensitivity analyses of NTS/typhoid predictions
 ```{r sensitivityDF, results="hide", message=FALSE, warning=FALSE}
